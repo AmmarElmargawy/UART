@@ -1,0 +1,123 @@
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 07/16/2023 11:44:08 PM
+// Design Name: 
+// Module Name: UART_RX
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+
+module UART_RX
+#(parameter Dbit = 8 , // data bits 
+            sb_tick = 16 // stop bit tick
+ )
+(
+   input rx , 
+   input s_tick ,
+   input clk , reset_n ,
+   output [Dbit -1 : 0 ] rx_out ,
+   output reg rx_done 
+    );
+    
+    
+    reg [1:0] state_reg , state_next ;
+    reg [3:0] s_reg , s_next ; // counter to keep trick the boud rate
+    reg  [$clog2(Dbit) - 1 : 0] n_reg , n_next ; // counter to keep trick the data recieved
+    reg [Dbit -1 :0] f_reg , f_next ; // store the recieved data bit "the frame" 
+    
+     localparam idle = 2'b00 ;
+     localparam start = 2'b01 ;
+     localparam data = 2'b10 ;
+     localparam stop = 2'b11 ;
+     
+      //  state logic
+        always @(posedge clk , negedge reset_n)
+         begin 
+          if (~reset_n)
+             begin 
+              state_reg <= idle ;
+              s_reg <= 0 ;
+              n_reg <= 0 ;
+              f_reg <= 0 ;
+             end 
+        else
+            begin 
+              state_reg <= state_next ;
+              s_reg <= s_next ;
+              n_reg <= n_next ;
+              f_reg <= f_next ;
+            end             
+         end 
+         
+        // next state logic 
+        always@(*)
+         begin 
+          // defualt values 
+           state_next = state_reg ;
+           s_next = s_reg ;
+           n_next = n_reg ;
+           f_next = f_reg ;
+           rx_done = 1'b0 ;
+           
+            case (state_reg)
+             idle: 
+                    if(~rx) 
+                    begin
+                       s_next = 0 ;
+                       state_next = start ;
+                    end   
+             start: 
+                   if (s_tick)
+                      if(s_reg == (Dbit - 1))
+                       begin 
+                        s_next = 0 ;
+                        n_next = 0 ; 
+                        state_next = data ;
+                       end
+                   else 
+                     s_next = s_reg + 1 ;  
+                     
+            data:
+                   if(s_tick) 
+                      if (s_reg == 15 )
+                      begin 
+                         s_next = 0 ;                    
+                          f_next = {rx, f_reg[Dbit - 1:1]}; // Right shift
+                          if(n_reg == (Dbit -1))
+                            state_next = stop ;
+                            else 
+                            n_next = n_reg + 1 ; 
+                      end
+                       else 
+                          s_next = s_reg + 1 ;
+                         
+             stop:  
+                   if(s_tick) 
+                     if(s_reg == (sb_tick - 1 ) ) 
+                      begin 
+                       rx_done = 1'b1 ;
+                       state_next = idle ;
+                      end 
+                   else 
+                    s_next = s_reg +1 ;   
+             default: 
+                 state_next = idle ;
+            endcase
+         end 
+        
+       // output logic  
+        assign rx_out = f_reg ;
+endmodule
