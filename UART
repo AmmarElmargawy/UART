@@ -1,0 +1,105 @@
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 07/17/2023 10:32:25 PM
+// Design Name: 
+// Module Name: UART
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+
+module UART
+#(parameter Dbit = 8 , // data bits 
+            sb_tick = 16 // stop bit tick 
+  )
+(
+ input clk , reset_n ,
+ 
+ // RX port 
+ input rd ,
+ output [Dbit - 1 : 0] r_data ,
+ output r_empty ,
+ input r_uart ,
+ 
+ //Tx port 
+ output td , 
+ input [Dbit - 1 : 0] w_data ,
+ input t_uart , 
+ output t_full ,
+ 
+ // baud rate gen
+ input [9 : 0] final_value 
+ 
+    );
+    
+    // baud rate gen
+    wire tick ;
+    timer_parameter #(.bits(10)) baud_rate (
+    .clk(clk) ,
+    .reset_n(reset_n) ,
+    .enable(1'b1) ,
+    .final_value(final_value) ,
+    .done(tick)
+    );
+    
+    // RX 
+    wire rx_done_tick ;
+    wire  [Dbit - 1 :0] rx_out ;
+    UART_RX #(.Dbit(Dbit) , .sb_tick(sb_tick)) receiver (
+      .rx(rd) , 
+      .s_tick(tick) ,
+      .clk(clk) , 
+      .reset_n(reset_n) ,
+      .rx_out(rx_out) ,
+      .rx_done(rx_done_tick)
+      ); 
+       
+       //Rx_fifo 
+       fifo_generator_0 rx_fifo (
+         .clk(clk),      // input wire clk
+         .srst(reset_n),    // input wire srst
+         .din(rx_out),      // input wire [7 : 0] din
+         .wr_en(rx_done_tick),  // input wire wr_en
+         .rd_en(r_uart),  // input wire rd_en
+         .dout(r_data),    // output wire [7 : 0] dout
+         .full(),    // output wire full
+         .empty(r_empty)  // output wire empty
+       );
+      
+      // TX 
+      wire  tx_done_tick , tx_fifo_empty ;
+      wire  [Dbit - 1 :0] tx_in ;
+      UART_TX #(.Dbit(Dbit) , .sb_tick(sb_tick)) transmitter (
+      .tx_din(tx_in) , 
+      .tx_start(~tx_fifo_empty) ,
+      .s_tick(tick) ,
+      .clk(clk) , 
+      .reset_n(reset_n) ,
+      .tx_out(td) ,
+      .tx_done(tx_done_tick) 
+        );
+        
+        fifo_generator_0 tx_fifo (
+          .clk(clk),      // input wire clk
+          .srst(reset_n),    // input wire srst
+          .din(w_data),      // input wire [7 : 0] din
+          .wr_en(t_uart),  // input wire wr_en
+          .rd_en(tx_done_tick),  // input wire rd_en
+          .dout(tx_in),    // output wire [7 : 0] dout
+          .full(t_full),    // output wire full
+          .empty(tx_fifo_empty)  // output wire empty
+        );
+        
+endmodule
