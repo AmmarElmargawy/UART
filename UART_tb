@@ -1,0 +1,129 @@
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 07/18/2023 02:22:56 AM
+// Design Name: 
+// Module Name: UART_tb
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+
+module UART_tb( );
+
+ localparam Dbit = 8 ;
+ localparam sb_tick = 16 ;
+ 
+     
+  reg clk , reset_n ;
+// RX port 
+reg rd ;
+wire [Dbit - 1 : 0] r_data ;
+wire r_empty ;
+reg r_uart ;
+
+//Tx port 
+wire td ;
+reg [Dbit - 1 : 0] w_data ;
+reg t_uart ; 
+wire t_full ;
+
+// baud rate gen
+reg [9 : 0] final_value ;
+
+ // Instantiate unit under test
+  UART #(.Dbit(Dbit) , .sb_tick(sb_tick)) uut (
+ .clk(clk),
+ .reset_n(reset_n),
+ .rd(rd),
+ .r_data(r_data),
+ .r_empty(r_empty),
+ .r_uart(r_uart),
+ .td(td),
+ .w_data(w_data),
+ .t_uart(t_uart) ,
+ .t_full(t_full) ,
+ .final_value(final_value)
+ ); 
+ 
+ 
+ initial
+  begin 
+    final_value=650; // value for baud rate
+    clk=0;
+    reset_n=1 ;
+    rd=1;
+    r_uart=0;
+    t_uart=0;
+    w_data= 8'b00100101;
+  
+  end   
+  
+   //reset block  
+ initial begin
+  #2 reset_n=0;
+  #2 reset_n=1;
+  end   
+  
+ //clock gen block
+ always #5 clk =~clk;
+ 
+ 
+ // transmiter block
+ initial begin 
+   w_data = 8'b00101010;
+  #6 t_uart=1;
+  #10 t_uart=0;
+ 
+ end
+ 
+ //reciever block
+ 
+ initial
+ 
+  begin 
+ 
+ // freeze state
+ #5 rd =1;
+ // start bit
+ #10 rd =0;
+ // data bits 11100110 
+ // 104160 ps is the duration of the single bit
+ #104160 
+ rd= 0; //lsb first
+ #104160 
+ rd= 1;
+ #104160 
+ rd= 1;
+ #104160 
+ rd= 0;
+ #104160 
+ rd= 0;
+ #104160 
+ rd= 1;
+ #104160 
+ rd= 1;
+ #104160 
+ rd= 1;
+ //parity bit 
+ //#104160 
+ //rd= 1; 
+ // stop bit 
+ #104160 
+ rd= 1;
+ 
+ end
+    
+
+endmodule
